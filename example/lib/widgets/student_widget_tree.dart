@@ -1,0 +1,104 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_unity_widget_example/screens/student_dashboard_screen.dart';
+import 'package:flutter_unity_widget_example/screens/courses_screen.dart';
+import 'package:flutter_unity_widget_example/screens/cybernews_screen.dart';
+import 'package:flutter_unity_widget_example/screens/profile_screen.dart';
+import 'package:flutter_unity_widget_example/screens/app_guide_screen.dart';
+import 'package:flutter_unity_widget_example/widgets/inactivity_wrapper.dart';
+import 'package:flutter_unity_widget_example/widgets/app_drawer.dart';
+
+// ValueNotifier for page selection - accessible throughout student tree
+final ValueNotifier<int> studentPageNotifier = ValueNotifier<int>(0);
+
+class StudentWidgetTree extends StatefulWidget {
+  const StudentWidgetTree({super.key});
+
+  @override
+  State<StudentWidgetTree> createState() => _StudentWidgetTreeState();
+}
+
+class _StudentWidgetTreeState extends State<StudentWidgetTree> {
+  // Royal blue color
+  static const Color royalBlue = Color(0xFF1E3A8A);
+
+  @override
+  void initState() {
+    super.initState();
+    studentPageNotifier.value = 0;
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  // Get page title based on index
+  String _getPageTitle(int selectedPage) {
+    switch (selectedPage) {
+      case 0:
+        return 'Student Dashboard';
+      case 1:
+        return 'Courses';
+      case 2:
+        return 'Cyber News';
+      case 3:
+        return 'App Guide';
+      case 4:
+        return 'Profile';
+      default:
+        return 'Student Dashboard';
+    }
+  }
+
+  // Get the current page based on selectedPage index
+  Widget _getPage(int selectedPage) {
+    switch (selectedPage) {
+      case 0:
+        return const StudentDashboardScreen();
+      case 1:
+        return const CoursesScreen();
+      case 2:
+        return const CyberNewsScreen();
+      case 3:
+        return const AppGuideScreen();
+      case 4:
+        return const ProfileScreen();
+      default:
+        return const StudentDashboardScreen();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InactivityWrapper(
+      child: ValueListenableBuilder<int>(
+        valueListenable: studentPageNotifier,
+        builder: (context, selectedPage, child) {
+          return Scaffold(
+            drawer: const AppDrawer(userType: 'student'),
+            appBar: AppBar(
+              backgroundColor: royalBlue,
+              elevation: 0,
+              leading: Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu, color: Colors.white),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
+              title: Text(
+                _getPageTitle(selectedPage),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              centerTitle: true,
+            ),
+            body: _getPage(selectedPage),
+          );
+        },
+      ),
+    );
+  }
+}

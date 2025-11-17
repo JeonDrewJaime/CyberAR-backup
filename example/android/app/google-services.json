@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1096486176417",
+    "project_id": "cyberar-23051",
+    "storage_bucket": "cyberar-23051.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1096486176417:android:3ec86199a5472cc622d2e0",
+        "android_client_info": {
+          "package_name": "com.xraph.plugin.flutter_unity_widget_example"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBPgIEOBapZSQ3Wiqxq3c-dEXfCLO5AmvQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

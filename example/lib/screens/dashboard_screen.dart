@@ -29,7 +29,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               backgroundColor: Colors.transparent,
               child: Container(
                 width: double.infinity,
-                margin: const EdgeInsets.symmetric(horizontal: 20),
+                margin: const EdgeInsets.symmetric(horizontal: 10),
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: yellowish,
@@ -139,7 +139,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               backgroundColor: Colors.transparent,
               child: Container(
                 width: double.infinity,
-                margin: const EdgeInsets.symmetric(horizontal: 20),
+                margin: const EdgeInsets.symmetric(horizontal: 10),
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: yellowish,

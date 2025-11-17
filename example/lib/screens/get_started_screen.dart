@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class GetStartedScreen extends StatelessWidget {
   const GetStartedScreen({super.key});
@@ -7,6 +8,11 @@ class GetStartedScreen extends StatelessWidget {
   static const Color royalBlue = Color(0xFF1E3A8A);
   // Yellowish background
   static const Color yellowish = Color(0xFFFFF59D);
+
+  Future<void> _saveUserType(String userType) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('userType', userType);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,45 +44,17 @@ class GetStartedScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 60),
 
-                // Teacher Login Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // Navigate to login screen with teacher parameter
-                      Navigator.of(context).pushReplacementNamed('/login',
-                          arguments: {'userType': 'teacher'});
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: royalBlue,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'TEACHER LOGIN',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
                 // Student Login Button
                 SizedBox(
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: () {
-                      // Navigate to login screen with student parameter
-                      Navigator.of(context).pushReplacementNamed('/login',
-                          arguments: {'userType': 'student'});
+                    onPressed: () async {
+                      await _saveUserType('student');
+                      if (context.mounted) {
+                        Navigator.of(context).pushReplacementNamed('/auth',
+                            arguments: {'userType': 'student'});
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: royalBlue,
@@ -88,6 +66,39 @@ class GetStartedScreen extends StatelessWidget {
                     ),
                     child: const Text(
                       'STUDENT LOGIN',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Teacher Login Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      await _saveUserType('teacher');
+                      if (context.mounted) {
+                        Navigator.of(context).pushReplacementNamed('/auth',
+                            arguments: {'userType': 'teacher'});
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: royalBlue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'TEACHER LOGIN',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,

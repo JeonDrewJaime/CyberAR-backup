@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:flutter_unity_widget_example/model/assessment_model.dart';
 import '../widgets/app_drawer.dart';
 
 class QuizCountdownScreen extends StatefulWidget {
-  const QuizCountdownScreen({super.key});
+  final AssessmentModel? assessment;
+  final String? courseId;
+  final String? assessmentId;
+
+  const QuizCountdownScreen({
+    super.key,
+    this.assessment,
+    this.courseId,
+    this.assessmentId,
+  });
 
   @override
   State<QuizCountdownScreen> createState() => _QuizCountdownScreenState();
@@ -54,7 +64,14 @@ class _QuizCountdownScreenState extends State<QuizCountdownScreen> {
   }
 
   void _navigateToQuiz() {
-    Navigator.of(context).pushReplacementNamed('/quiz-questions');
+    Navigator.of(context).pushReplacementNamed(
+      '/quiz-questions',
+      arguments: {
+        'assessment': widget.assessment,
+        'courseId': widget.courseId,
+        'assessmentId': widget.assessmentId,
+      },
+    );
   }
 
   @override
