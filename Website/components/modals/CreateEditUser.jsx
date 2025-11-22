@@ -13,6 +13,8 @@ const validationSchema = Yup.object().shape({
 });
 
 const CreateEditUserModal = ({ show, handleClose, user, sections, onUpdate }) => {
+    const [errorMessage, setErrorMessage] = useState('');
+    
     const initialValues = {
         name: user?.name || '',
         studentNumber: user?.studentNumber || '',
@@ -22,9 +24,11 @@ const CreateEditUserModal = ({ show, handleClose, user, sections, onUpdate }) =>
     };
 
     useEffect(() => {
-    }, [user]);
+        setErrorMessage(''); // Clear error when modal opens/closes or user changes
+    }, [user, show]);
 
     const handleSubmit = async (values, { setSubmitting }) => {
+        setErrorMessage('');
         try {
             if (user && user.id) {
                 await editUser(user.id, values);
@@ -37,6 +41,7 @@ const CreateEditUserModal = ({ show, handleClose, user, sections, onUpdate }) =>
             handleClose();
         } catch (error) {
             console.error('Failed to update user', error);
+            setErrorMessage(error.message || 'Failed to create user. Please try again.');
         } finally {
             setSubmitting(false);
         }
@@ -164,6 +169,11 @@ const CreateEditUserModal = ({ show, handleClose, user, sections, onUpdate }) =>
                                     </Form.Control.Feedback>
                                 </div>
                             </Form.Group>
+                            {errorMessage && (
+                                <div className="alert alert-danger mt-3" role="alert">
+                                    {errorMessage}
+                                </div>
+                            )}
                             <div className="mt-4 d-flex justify-content-end">
                                 <Button variant="secondary" onClick={handleClose} disabled={isSubmitting}>
                                     Cancel
