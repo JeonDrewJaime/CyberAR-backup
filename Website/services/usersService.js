@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, addDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, signOut, getAuth } from 'firebase/auth';
 import { initializeApp, getApp } from 'firebase/app';
 import { db, auth } from '../firebase';
@@ -63,14 +63,14 @@ export const createUser = async (user) => {
             throw new Error(`Failed to create authentication account: ${authError.message}`);
         }
 
-        // Create Firestore user document with auth UID
+        // Create Firestore user document with auth UID as the document ID
         user.createdDate = new Date();
         user.uid = authUser.uid; // Store the Firebase Auth UID
         delete user.password; // Don't store password in Firestore
         
-        const userRef = collection(db, 'users');
-        const docRef = await addDoc(userRef, user);
-        return docRef.id;
+        const userRef = doc(db, 'users', authUser.uid);
+        await setDoc(userRef, user);
+        return authUser.uid;
     } catch (error) {
         console.error('Error creating user:', error);
         throw error;
