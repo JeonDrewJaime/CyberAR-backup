@@ -13,13 +13,21 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordScreen> {
-  final GlobalKey<FormState> forgotPasswordFormKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
-  String? _emailError;
+  final TextEditingController codeController = TextEditingController();
+  final TextEditingController newPasswordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
 
-  // Royal blue color
+  int _currentStep = 0; // 0: email, 1: code, 2: new password
+  String? _emailError;
+  String? _codeError;
+  String? _passwordError;
+  String _userEmail = '';
+  bool _isNewPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
+
   static const Color royalBlue = Color(0xFF1E3A8A);
-  // More yellowish background
   static const Color yellowish = Color(0xFFFFF59D);
 
   @override
@@ -31,36 +39,79 @@ class _ForgotPasswordPageState extends State<ForgotPasswordScreen> {
   @override
   void dispose() {
     emailController.dispose();
+    codeController.dispose();
+    newPasswordController.dispose();
+    confirmPasswordController.dispose();
     super.dispose();
   }
 
   void _validateEmail() {
-    final email = emailController.text;
+    final email = emailController.text.trim();
     if (email.isEmpty) {
-      setState(() {
-        _emailError = 'Please enter your email';
-      });
+      setState(() => _emailError = 'Please enter your email');
     } else if (!email.contains('@')) {
-      setState(() {
-        _emailError = 'Please enter a valid email';
-      });
+      setState(() => _emailError = 'Please enter a valid email');
     } else {
-      setState(() {
-        _emailError = null;
-      });
+      setState(() => _emailError = null);
     }
   }
 
-  Future<void> _sendResetLink(AuthViewModel authViewModel) async {
+  Future<void> _sendCode(AuthViewModel authViewModel) async {
     _validateEmail();
-
     if (_emailError == null) {
-      final email = emailController.text.trim();
-      await authViewModel.forgotPassword(email);
+      _userEmail = emailController.text.trim();
+      await authViewModel.sendVerificationCode(_userEmail);
+      if (mounted && authViewModel.successMessage != null) {
+        setState(() => _currentStep = 1);
+      }
+    }
+  }
 
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) Navigator.pop(context);
-      });
+  Future<void> _verifyCode(AuthViewModel authViewModel) async {
+    final code = codeController.text.trim();
+    if (code.isEmpty) {
+      setState(() => _codeError = 'Please enter the code');
+      return;
+    }
+    if (code.length != 6) {
+      setState(() => _codeError = 'Code must be 6 digits');
+      return;
+    }
+    setState(() => _codeError = null);
+
+    final isValid = await authViewModel.verifyCode(_userEmail, code);
+    if (isValid && mounted) {
+      setState(() => _currentStep = 2);
+    }
+  }
+
+  void _validatePassword() {
+    final password = newPasswordController.text;
+    final confirmPassword = confirmPasswordController.text;
+
+    if (password.isEmpty) {
+      setState(() => _passwordError = 'Please enter a new password');
+    } else if (password.length < 6) {
+      setState(() => _passwordError = 'Password must be at least 6 characters');
+    } else if (password != confirmPassword) {
+      setState(() => _passwordError = 'Passwords do not match');
+    } else {
+      setState(() => _passwordError = null);
+    }
+  }
+
+  Future<void> _resetPassword(AuthViewModel authViewModel) async {
+    _validatePassword();
+    if (_passwordError == null) {
+      await authViewModel.resetPassword(
+        _userEmail,
+        newPasswordController.text.trim(),
+      );
+      if (mounted && authViewModel.successMessage != null) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) Navigator.pop(context);
+        });
+      }
     }
   }
 
@@ -68,7 +119,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     final authViewModel = context.watch<AuthViewModel>();
 
-    // Success
     runAfterBuild(() {
       if (mounted) {
         if (authViewModel.successMessage != null) {
@@ -80,12 +130,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordScreen> {
           );
           authViewModel.clearMessage();
         }
-      }
-    });
-
-    // Error
-    runAfterBuild(() {
-      if (mounted) {
         if (authViewModel.errorMessage != null) {
           MySnackbar.show(
             context,
@@ -109,40 +153,39 @@ class _ForgotPasswordPageState extends State<ForgotPasswordScreen> {
                 MediaQuery.of(context).padding.bottom,
             padding:
                 const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
-            child: Form(
-              key: forgotPasswordFormKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Title Text
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Forgot',
-                      style: TextStyle(
-                        fontSize: 48,
-                        fontWeight: FontWeight.w300,
-                        color: royalBlue,
-                        fontFamily: 'Arial',
-                      ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Title
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Forgot',
+                    style: TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w300,
+                      color: royalBlue,
+                      fontFamily: 'Arial',
                     ),
                   ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Password?',
-                      style: TextStyle(
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        color: royalBlue,
-                        fontFamily: 'Arial',
-                      ),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Password?',
+                    style: TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                      color: royalBlue,
+                      fontFamily: 'Arial',
                     ),
                   ),
-                  const SizedBox(height: 60),
+                ),
+                const SizedBox(height: 40),
 
-                  // Email Field
+                // Step 1: Email
+                if (_currentStep == 0) ...[
                   Container(
                     decoration: BoxDecoration(
                       color: royalBlue,
@@ -154,19 +197,16 @@ class _ForgotPasswordPageState extends State<ForgotPasswordScreen> {
                       style: const TextStyle(color: Colors.white),
                       decoration: const InputDecoration(
                         hintText: 'Enter Email',
-                        hintStyle: TextStyle(color: Colors.white),
+                        hintStyle: TextStyle(color: Colors.white70),
                         border: InputBorder.none,
                         contentPadding:
                             EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
-                      onChanged: (value) {
-                        if (_emailError != null) {
-                          _validateEmail();
-                        }
+                      onChanged: (_) {
+                        if (_emailError != null) _validateEmail();
                       },
                     ),
                   ),
-                  // Email Error
                   if (_emailError != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0, left: 4.0),
@@ -174,30 +214,25 @@ class _ForgotPasswordPageState extends State<ForgotPasswordScreen> {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           _emailError!,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 12,
-                          ),
+                          style:
+                              const TextStyle(color: Colors.red, fontSize: 12),
                         ),
                       ),
                     ),
                   const SizedBox(height: 24),
-
-                  // Send Reset Link Button
                   SizedBox(
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
                       onPressed: authViewModel.isLoading
                           ? null
-                          : () => _sendResetLink(authViewModel),
+                          : () => _sendCode(authViewModel),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: royalBlue,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        elevation: 0,
                       ),
                       child: authViewModel.isLoading
                           ? const SizedBox(
@@ -210,34 +245,231 @@ class _ForgotPasswordPageState extends State<ForgotPasswordScreen> {
                               ),
                             )
                           : const Text(
-                              'Send Reset Link',
+                              'Send Code',
                               style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                fontFamily: 'Arial',
-                              ),
+                                  fontSize: 18, fontWeight: FontWeight.w600),
                             ),
                     ),
                   ),
-                  const SizedBox(height: 32),
+                ],
 
-                  // Back to Login Link
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text(
-                      'Back to Login',
-                      style: TextStyle(
-                        color: royalBlue,
-                        fontSize: 16,
-                        decoration: TextDecoration.underline,
-                        fontWeight: FontWeight.w500,
+                // Step 2: Code
+                if (_currentStep == 1) ...[
+                  Text(
+                    'Enter the 6-digit code sent to\n$_userEmail',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: royalBlue, fontSize: 16),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: royalBlue,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: TextFormField(
+                      controller: codeController,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 24, letterSpacing: 8),
+                      textAlign: TextAlign.center,
+                      decoration: const InputDecoration(
+                        hintText: '000000',
+                        hintStyle:
+                            TextStyle(color: Colors.white70, letterSpacing: 8),
+                        border: InputBorder.none,
+                        counterText: '',
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
+                      onChanged: (_) {
+                        if (_codeError != null)
+                          setState(() => _codeError = null);
+                      },
+                    ),
+                  ),
+                  if (_codeError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        _codeError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: authViewModel.isLoading
+                          ? null
+                          : () => _verifyCode(authViewModel),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: royalBlue,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: authViewModel.isLoading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text(
+                              'Verify Code',
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.w600),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => _sendCode(authViewModel),
+                    child: Text(
+                      'Resend Code',
+                      style: TextStyle(
+                          color: royalBlue,
+                          decoration: TextDecoration.underline),
                     ),
                   ),
                 ],
-              ),
+
+                // Step 3: New Password
+                if (_currentStep == 2) ...[
+                  Text(
+                    'Enter your new password',
+                    style: TextStyle(color: royalBlue, fontSize: 16),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: royalBlue,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: TextFormField(
+                      controller: newPasswordController,
+                      obscureText: !_isNewPasswordVisible,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'New Password',
+                        hintStyle: const TextStyle(color: Colors.white70),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 16),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isNewPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            color: Colors.white,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isNewPasswordVisible = !_isNewPasswordVisible;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: royalBlue,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: TextFormField(
+                      controller: confirmPasswordController,
+                      obscureText: !_isConfirmPasswordVisible,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Confirm Password',
+                        hintStyle: const TextStyle(color: Colors.white70),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 16),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isConfirmPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            color: Colors.white,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isConfirmPasswordVisible =
+                                  !_isConfirmPasswordVisible;
+                            });
+                          },
+                        ),
+                      ),
+                      onChanged: (_) {
+                        if (_passwordError != null) _validatePassword();
+                      },
+                    ),
+                  ),
+                  if (_passwordError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        _passwordError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: authViewModel.isLoading
+                          ? null
+                          : () => _resetPassword(authViewModel),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: royalBlue,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: authViewModel.isLoading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text(
+                              'Reset Password',
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.w600),
+                            ),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 32),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Text(
+                    'Back to Login',
+                    style: TextStyle(
+                      color: royalBlue,
+                      fontSize: 16,
+                      decoration: TextDecoration.underline,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

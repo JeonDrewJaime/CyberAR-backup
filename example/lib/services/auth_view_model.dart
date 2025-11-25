@@ -16,14 +16,14 @@ class AuthViewModel extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get successMessage => _successMessage;
 
-  // clearMessage
+  //! CLEAR MESSAGE
   void clearMessage() {
     _errorMessage = null;
     _successMessage = null;
     notifyListeners();
   }
 
-  // Login Function
+  //! LOGIN FUNCTION
   Future<void> login(BuildContext context, String email, String password,
       String userType) async {
     _isLoading = true;
@@ -45,22 +45,67 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
-  // Forgot Password Function
-  Future<void> forgotPassword(String email) async {
+  //! SEND VERIFICATION CODE
+  Future<void> sendVerificationCode(String email) async {
     _isLoading = true;
     _errorMessage = null;
     _successMessage = null;
     notifyListeners();
 
     try {
-      await _authService.sendPasswordResetLink(email);
+      await _authService.sendPasswordResetCode(email);
       _isLoading = false;
-      _successMessage =
-          'Password reset link sent to email. Make sure to check your spam folder if you don\'t see it.';
+      _successMessage = 'Verification code sent to your email';
       notifyListeners();
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Failed to send reset link. Please try again.';
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+    }
+  }
+
+  //! VERIFY CODE
+  Future<bool> verifyCode(String email, String code) async {
+    _isLoading = true;
+    _errorMessage = null;
+    _successMessage = null;
+    notifyListeners();
+
+    try {
+      final isValid = await _authService.verifyResetCode(email, code);
+      _isLoading = false;
+      if (isValid) {
+        _successMessage = 'Code verified successfully';
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = 'Invalid or expired code';
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = 'Failed to verify code';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  //! RESET PASSWORD
+  Future<void> resetPassword(String email, String newPassword) async {
+    _isLoading = true;
+    _errorMessage = null;
+    _successMessage = null;
+    notifyListeners();
+
+    try {
+      await _authService.resetPassword(email, newPassword);
+      _isLoading = false;
+      _successMessage = 'Password changed successfully!. ';
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
     }
   }

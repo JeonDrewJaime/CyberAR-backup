@@ -30,6 +30,7 @@ dependencies:
   path_provider: ^2.1.4
   gallery_saver: ^2.3.2
   permission_handler: ^11.3.0
+  mailer: ^6.0.1
 
 dev_dependencies:
   flutter_test:
@@ -48,6 +49,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/avatars/
+    - assets/images/appguide/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware.
