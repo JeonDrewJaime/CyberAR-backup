@@ -66,7 +66,7 @@ export const createUser = async (user) => {
         // Create Firestore user document with auth UID as the document ID
         user.createdDate = new Date();
         user.uid = authUser.uid; // Store the Firebase Auth UID
-        delete user.password; // Don't store password in Firestore
+        // Password is stored in Firestore for reference
         
         const userRef = doc(db, 'users', authUser.uid);
         await setDoc(userRef, user);

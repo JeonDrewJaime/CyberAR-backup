@@ -1,9 +1,5 @@
 allprojects {
     repositories {
-        flatDir {
-            dirs "${project(':unityLibrary').projectDir}/libs"
-        }
-
         google()
         mavenCentral()
     }
@@ -25,16 +21,49 @@ subprojects {
         if (project.plugins.hasPlugin("com.android.application")
                 || project.plugins.hasPlugin("com.android.library")) {
 
-            if (project.name == "flutter_unity_widget") {
-                project.android {
-                    // add namespace if it is missing
-                    if (namespace == null) {
-                        namespace = project.group
-                    }              
+            // Fix for gallery_saver and other plugins missing namespace
+            if (project.android.namespace == null) {
+                // Try to get namespace from AndroidManifest.xml package attribute
+                def manifestFile = file("${project.projectDir}/src/main/AndroidManifest.xml")
+                if (manifestFile.exists()) {
+                    def manifestContent = manifestFile.getText()
+                    def packageMatch = manifestContent =~ /package=["']([^"']+)["']/
+                    if (packageMatch.find()) {
+                        project.android.namespace = packageMatch.group(1)
+                    }
                 }
-                project.android.kotlinOptions {
-                    // if you change this value, also change it in android/app/build.gradle
-                    jvmTarget = JavaVersion.VERSION_11.toString()
+                
+                // If still null, set default namespaces for known plugins
+                if (project.android.namespace == null) {
+                    switch (project.name) {
+                        case "gallery_saver":
+                            project.android.namespace = "gallery_saver"
+                            break
+                        default:
+                            // Try to infer from project name
+                            project.android.namespace = project.name.replaceAll("-", "_")
+                            break
+                    }
+                }
+            }
+            
+            // Fix JVM target compatibility - ensure Java and Kotlin use the same target
+            if (project.hasProperty("android")) {
+                try {
+                    // Set Java compile options to JVM 21 to match Kotlin
+                    project.android.compileOptions {
+                        sourceCompatibility = JavaVersion.VERSION_21
+                        targetCompatibility = JavaVersion.VERSION_21
+                    }
+                    
+                    // Set Kotlin JVM target to 21 to match Java
+                    if (project.plugins.hasPlugin("org.jetbrains.kotlin.android")) {
+                        project.android.kotlinOptions {
+                            jvmTarget = "21"
+                        }
+                    }
+                } catch (Exception e) {
+                    // Ignore if configuration fails
                 }
             }
         }
