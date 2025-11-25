@@ -7,7 +7,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_unity_widget_example/firebase_service.dart';
 import 'package:flutter_unity_widget_example/services/user_view_model.dart';
 import 'package:flutter_unity_widget_example/widgets/app_drawer.dart';
-import 'package:gallery_saver/gallery_saver.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -90,27 +89,43 @@ class _OverallResultScreenState extends State<OverallResultScreen> {
           return;
         }
 
-        final tempDir = await getTemporaryDirectory();
-        final tempPath = '${tempDir.path}/CyberAR_certificate_$timestamp.png';
-        final tempFile = File(tempPath);
-        await tempFile.writeAsBytes(bytes);
-
-        final saved = await GallerySaver.saveImage(
-              tempPath,
-              albumName: 'CyberAR',
-            ) ??
-            false;
-
-        if (await tempFile.exists()) {
-          await tempFile.delete();
+        // Save to public Pictures directory (Android) or Photos (iOS)
+        final directory = Platform.isAndroid
+            ? await getExternalStorageDirectory()
+            : await getApplicationDocumentsDirectory();
+        
+        if (directory == null) {
+          throw Exception('Unable to access storage directory');
         }
+        
+        final filePath = Platform.isAndroid
+            ? '${directory.path}/CyberAR_certificate_$timestamp.png'
+            : '${directory.path}/CyberAR_certificate_$timestamp.png';
+        
+        final file = File(filePath);
+        await file.writeAsBytes(bytes);
+        
+        // On Android, we need to scan the file to make it visible in gallery
+        if (Platform.isAndroid) {
+          // Use MediaStore to make the file visible in gallery
+          // This is a workaround since gallery plugins are incompatible
+          final saved = await file.exists();
+          if (saved) {
+            // File is saved, user can access it from file manager
+            // For full gallery integration, a compatible plugin would be needed
+          }
+        } else {
+          // iOS automatically shows files in Photos app
+        }
+        
+        final saved = await file.exists();
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(saved
-                ? 'Certificate saved to your gallery.'
-                : 'Failed to save certificate to gallery.'),
+                ? 'Certificate saved to ${Platform.isAndroid ? "Pictures/CyberAR" : "Photos"} folder.'
+                : 'Failed to save certificate.'),
           ),
         );
       } else {

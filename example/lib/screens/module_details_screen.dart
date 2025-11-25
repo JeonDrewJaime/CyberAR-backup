@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/app_drawer.dart';
-import 'package:flutter_unity_widget/flutter_unity_widget.dart';
 import 'package:flutter_unity_widget_example/firebase_service.dart';
 import 'package:flutter_unity_widget_example/model/assessment_model.dart';
 import 'package:flutter_unity_widget_example/services/assessment_repository.dart';
@@ -884,40 +886,112 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
     );
   }
 
-  //! SHOW UNITY SCREEN
+  //! SHOW AR SCREEN (Unity removed - placeholder)
   void _showUnityScreen() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: darkBlue,
-            title: const Text(
-              'AR Experience',
-              style: TextStyle(color: Colors.white),
-            ),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('AR Experience'),
+        content: const Text('AR functionality is currently unavailable. This feature has been removed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
           ),
-          body: UnityWidget(
-            // Unity widget configuration
-            useAndroidViewSurface: true,
-            onUnityCreated: (controller) {
-              // Unity widget created
-            },
-            onUnityMessage: (message) {
-              // Handle Unity messages
-            },
-            onUnitySceneLoaded: (scene) {
-              // Handle scene loaded
-            },
-            fullscreen: false,
-          ),
-        ),
+        ],
       ),
     );
+  }
+
+  String? _deriveArCategory(String lessonTitle) {
+    final normalized = lessonTitle.toLowerCase();
+    if (normalized.contains('social engineering')) {
+      return 'social engineering';
+    }
+    if (normalized.contains('phishing')) {
+      return 'phishing';
+    }
+    if (normalized.contains('ransomware')) {
+      return 'ransomware';
+    }
+    return null;
+  }
+
+  Future<void> _recordArInteraction({
+    required String category,
+    required String lessonTitle,
+  }) async {
+    try {
+      final deviceModel = await _getDeviceModelLabel();
+      final docId = _sanitizeDocId(deviceModel);
+
+      await FirebaseService.firestore
+          .collection('devices')
+          .doc(docId)
+          .set(
+        {
+          'deviceModel': deviceModel,
+          'topic': category,
+          'lessonTitle': lessonTitle,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to log AR interaction: $error'),
+        ),
+      );
+    }
+  }
+
+  Future<String> _getDeviceModelLabel() async {
+    final deviceInfoPlugin = DeviceInfoPlugin();
+    try {
+      if (kIsWeb) {
+        final info = await deviceInfoPlugin.webBrowserInfo;
+        return info.userAgent ??
+            info.vendor ??
+            info.browserName.name ??
+            'web-device';
+      }
+
+      switch (defaultTargetPlatform) {
+        case TargetPlatform.android:
+          final info = await deviceInfoPlugin.androidInfo;
+          final manufacturer = info.manufacturer ?? 'Android';
+          final model = info.model ?? 'Device';
+          return '$manufacturer $model';
+        case TargetPlatform.iOS:
+          final info = await deviceInfoPlugin.iosInfo;
+          return info.utsname.machine ?? info.name ?? 'iOS Device';
+        case TargetPlatform.macOS:
+          final info = await deviceInfoPlugin.macOsInfo;
+          return info.model ?? info.hostName ?? 'macOS Device';
+        case TargetPlatform.windows:
+          final info = await deviceInfoPlugin.windowsInfo;
+          return info.computerName ?? 'Windows Device';
+        case TargetPlatform.linux:
+          final info = await deviceInfoPlugin.linuxInfo;
+          return info.prettyName ?? 'Linux Device';
+        case TargetPlatform.fuchsia:
+          return 'Fuchsia Device';
+      }
+    } catch (_) {
+      // ignore and fall through to default
+    }
+    return 'unknown-device';
+  }
+
+  String _sanitizeDocId(String input) {
+    final sanitized =
+        input.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_-]+'), '-');
+    if (sanitized.isEmpty) {
+      return 'unknown-device';
+    }
+    return sanitized;
   }
 
   //! SHOW DRAWER (ADJUST TEXT SIZE AND BACK TO MODULE LIST)
@@ -1086,12 +1160,8 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
         final int totalLessons = course.lessons.length;
         final bool isLastLesson = widget.currentIndex == totalLessons - 1;
         final lessonTitle = currentLesson.title.toLowerCase();
-
-        final keywords = [
-          'social engineering',
-          'phishing',
-          'ransomware',
-        ];
+        final arCategory = _deriveArCategory(currentLesson.title);
+        final hasArEnhancement = arCategory != null;
 
         return Scaffold(
           backgroundColor: yellowish,
@@ -1146,8 +1216,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                           ),
                           const SizedBox(width: 8),
                           // Light bulb icon for tips (only show if lesson matches keywords)
-                          if (keywords.any(
-                              (keyword) => lessonTitle.contains(keyword))) ...[
+                          if (hasArEnhancement) ...[
                             GestureDetector(
                               onTap: () {
                                 // Check if lesson title is "social engineering" to show flashcards
@@ -1185,7 +1254,12 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                             const SizedBox(width: 8),
                             // AR icon for augmented reality
                             GestureDetector(
-                              onTap: () {
+                              onTap: () async {
+                                if (arCategory == null) return;
+                                await _recordArInteraction(
+                                  category: arCategory,
+                                  lessonTitle: currentLesson.title,
+                                );
                                 _showUnityScreen();
                               },
                               child: Container(

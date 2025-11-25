@@ -15,13 +15,13 @@ android {
     // ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     kotlinOptions {
-        // if you change this value, also change it in android/build.gradle subprojects{}
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        // Updated to JVM 21 for compatibility with newer plugins like gallery_saver
+        jvmTarget = JavaVersion.VERSION_21.toString()
     }
 
     defaultConfig {
@@ -48,6 +48,4 @@ flutter {
 }
 
 dependencies {
-    implementation project(':unityLibrary')
-    implementation project(':flutter_unity_widget')
 }
