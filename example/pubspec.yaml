@@ -29,6 +29,9 @@ dependencies:
   path_provider: ^2.1.4
   permission_handler: ^11.3.0
   mailer: ^6.0.1
+  url_launcher: ^6.3.1
+  external_app_launcher: ^4.0.3
+  open_file: ^3.5.1
 
 dev_dependencies:
   flutter_test:
@@ -48,6 +51,7 @@ flutter:
     - assets/images/
     - assets/images/avatars/
     - assets/images/appguide/
+    - assets/CyberAR_service.apk
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware.

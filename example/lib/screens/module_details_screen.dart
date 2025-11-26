@@ -1,10 +1,15 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../widgets/app_drawer.dart';
 import 'package:flutter_unity_widget_example/firebase_service.dart';
 import 'package:flutter_unity_widget_example/model/assessment_model.dart';
@@ -14,6 +19,8 @@ import 'package:flutter_unity_widget_example/services/quiz_attempt_repository.da
 import 'package:provider/provider.dart';
 import 'package:flutter_unity_widget_example/model/cyber_tip_model.dart';
 import 'dialog_flashcards.dart';
+import 'package:external_app_launcher/external_app_launcher.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ModuleDetailsScreen extends StatefulWidget {
   //! COURSE ID
@@ -886,21 +893,9 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
     );
   }
 
-  //! SHOW AR SCREEN (Unity removed - placeholder)
-  void _showUnityScreen() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('AR Experience'),
-        content: const Text('AR functionality is currently unavailable. This feature has been removed.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+  //! SHOW AR SCREEN (Launch external AR app)
+  Future<void> _showUnityScreen() async {
+    await _launchApp();
   }
 
   String? _deriveArCategory(String lessonTitle) {
@@ -992,6 +987,306 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       return 'unknown-device';
     }
     return sanitized;
+  }
+
+  //! LAUNCH APP USING PACKAGE NAME (Local App)
+  Future<void> _launchApp() async {
+    try {
+      final packageName = 'com.DefaultCompany.CyberAR';
+      debugPrint('_launchApp: Attempting to launch app with package: $packageName');
+      debugPrint('_launchApp: Platform = ${defaultTargetPlatform}');
+      
+      // Check if app is installed first (Android only) - but don't rely on it completely
+      bool isInstalledCheck = true; // Default to true, try launching anyway
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        try {
+          final isInstalled = await LaunchApp.isAppInstalled(
+            androidPackageName: packageName,
+          );
+          debugPrint('_launchApp: App installed check = $isInstalled');
+          isInstalledCheck = isInstalled ?? true; // If null, assume true and try anyway
+          
+          if (isInstalledCheck == false) {
+            debugPrint('_launchApp: isAppInstalled returned false, but will attempt launch anyway');
+            debugPrint('_launchApp: Note: isAppInstalled check may be unreliable');
+          }
+        } catch (checkError) {
+          debugPrint('_launchApp: Error checking if app is installed: $checkError');
+          debugPrint('_launchApp: Will attempt to launch anyway (check may be unreliable)');
+          // Continue anyway, try to launch
+        }
+      }
+      
+      // Attempt to launch the app (even if check said it's not installed)
+      debugPrint('_launchApp: Attempting to launch app with package: $packageName');
+      debugPrint('_launchApp: Package name verification - make sure this matches exactly: $packageName');
+      
+      bool launchFailed = false;
+      String failureReason = '';
+      
+      // Try method 1: external_app_launcher
+      try {
+        debugPrint('_launchApp: Trying method 1: external_app_launcher');
+        final result = await LaunchApp.openApp(
+          androidPackageName: packageName,
+          iosUrlScheme: '$packageName://',
+          openStore: false,
+        );
+        
+        debugPrint('_launchApp: Launch result = $result (type: ${result.runtimeType})');
+        
+        // Check for failure cases
+        if (result is bool) {
+          if (result == false) {
+            launchFailed = true;
+            failureReason = 'Launch returned false';
+          } else {
+            debugPrint('_launchApp: Launch successful (boolean true)');
+            return; // Success, exit early
+          }
+        } else if (result is int) {
+          if (result == 0) {
+            // 0 typically means failure in Android
+            launchFailed = true;
+            failureReason = 'Launch returned 0';
+            debugPrint('_launchApp: Method 1 failed, trying alternative method...');
+          } else {
+            debugPrint('_launchApp: Launch successful (result code: $result)');
+            return; // Success, exit early
+          }
+        } else {
+          debugPrint('_launchApp: Launch completed with result: $result');
+          return; // Assume success
+        }
+      } catch (e) {
+        debugPrint('_launchApp: Method 1 error: $e');
+        launchFailed = true;
+        failureReason = 'Method 1 failed: $e';
+      }
+      
+      // Don't use fallback methods that might open Play Store
+      // If method 1 fails, just show install dialog
+      
+      // All methods failed
+      if (launchFailed) {
+        debugPrint('_launchApp: All launch methods failed');
+        debugPrint('_launchApp: Please verify:');
+        debugPrint('_launchApp:   1. Package name is correct: $packageName');
+        debugPrint('_launchApp:   2. App is installed on device');
+        debugPrint('_launchApp:   3. App has proper permissions');
+        debugPrint('_launchApp:   4. Try: adb shell pm list packages | grep $packageName');
+        debugPrint('_launchApp:   5. Try: adb shell monkey -p $packageName -c android.intent.category.LAUNCHER 1');
+        if (!mounted) return;
+        // Show install dialog instead of snackbar
+        await _showInstallApkDialog();
+      }
+    } catch (e, stackTrace) {
+      debugPrint('_launchApp Error: $e');
+      debugPrint('_launchApp Error Type: ${e.runtimeType}');
+      debugPrint('_launchApp Stack Trace: $stackTrace');
+      if (!mounted) return;
+      // Show install dialog on error
+      await _showInstallApkDialog();
+      rethrow; // Re-throw to be caught by the calling function
+    }
+  }
+
+  //! SHOW INSTALL APK DIALOG
+  Future<void> _showInstallApkDialog() async {
+    if (!mounted) return;
+    
+    final shouldInstall = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: yellowish,
+          title: const Text(
+            'AR App Not Found',
+            style: TextStyle(
+              color: darkBlue,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            'The CyberAR Service app is required to use AR features. Would you like to install it now?',
+            style: TextStyle(
+              color: darkBlue,
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: darkBlue, width: 2),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: darkBlue),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: darkBlue,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Install'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldInstall == true) {
+      await _installApkFromAssets();
+    }
+  }
+
+  //! INSTALL APK FROM ASSETS
+  Future<void> _installApkFromAssets() async {
+    try {
+      debugPrint('_installApkFromAssets: Starting APK installation process');
+      
+      if (!mounted) return;
+      
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Get the APK from assets
+      final ByteData data = await rootBundle.load('assets/CyberAR_service.apk');
+      final List<int> bytes = data.buffer.asUint8List();
+
+      // Get temporary directory
+      final Directory tempDir = await getTemporaryDirectory();
+      final String apkPath = '${tempDir.path}/CyberAR_service.apk';
+      final File apkFile = File(apkPath);
+
+      // Write APK to temporary file
+      await apkFile.writeAsBytes(bytes);
+      debugPrint('_installApkFromAssets: APK written to $apkPath');
+
+      // Request install packages permission (required for Android 8.0+)
+      if (Platform.isAndroid) {
+        debugPrint('_installApkFromAssets: Checking install packages permission');
+        var status = await Permission.requestInstallPackages.status;
+        debugPrint('_installApkFromAssets: Current permission status = $status');
+        
+        if (!status.isGranted) {
+          debugPrint('_installApkFromAssets: Requesting install packages permission');
+          status = await Permission.requestInstallPackages.request();
+          debugPrint('_installApkFromAssets: Permission request result = $status');
+        }
+        
+        if (!status.isGranted) {
+          // Close loading dialog
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
+          
+          if (mounted) {
+            // Show dialog explaining permission is needed
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                backgroundColor: yellowish,
+                title: const Text(
+                  'Permission Required',
+                  style: TextStyle(
+                    color: darkBlue,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                content: const Text(
+                  'To install the AR app, please grant the "Install unknown apps" permission. This will open your device settings where you can enable this permission.',
+                  style: TextStyle(color: darkBlue),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: darkBlue, width: 2),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(color: darkBlue),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.of(context).pop();
+                      await openAppSettings();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: darkBlue,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Open Settings'),
+                  ),
+                ],
+              ),
+            );
+          }
+          return;
+        }
+        
+        debugPrint('_installApkFromAssets: Install packages permission granted');
+      }
+
+      // Close loading dialog
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // Open the APK file to trigger system installer
+      debugPrint('_installApkFromAssets: Opening APK file with installer');
+      final result = await OpenFile.open(apkPath);
+      debugPrint('_installApkFromAssets: Open file result: ${result.message}');
+
+      if (mounted) {
+        if (result.type == ResultType.done) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Opening installer... Please follow the installation prompts.'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to open installer: ${result.message}'),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint('_installApkFromAssets Error: $e');
+      debugPrint('_installApkFromAssets Stack Trace: $stackTrace');
+      
+      // Close loading dialog if still open
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst || !route.willHandlePopInternally);
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to install APK: $e'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
   }
 
   //! SHOW DRAWER (ADJUST TEXT SIZE AND BACK TO MODULE LIST)
@@ -1255,12 +1550,44 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                             // AR icon for augmented reality
                             GestureDetector(
                               onTap: () async {
-                                if (arCategory == null) return;
-                                await _recordArInteraction(
-                                  category: arCategory,
-                                  lessonTitle: currentLesson.title,
-                                );
-                                _showUnityScreen();
+                                try {
+                                  debugPrint('AR Button: Starting AR launch process');
+                                  
+                                  if (arCategory == null) {
+                                    debugPrint('AR Button: arCategory is null, cannot proceed');
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('AR category not available for this lesson.'),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  
+                                  debugPrint('AR Button: arCategory = $arCategory, lessonTitle = ${currentLesson.title}');
+                                  
+                                  // Record AR interaction
+                                  await _recordArInteraction(
+                                    category: arCategory,
+                                    lessonTitle: currentLesson.title,
+                                  );
+                                  debugPrint('AR Button: AR interaction recorded successfully');
+                                  
+                                  // Launch the external AR app
+                                  debugPrint('AR Button: Attempting to launch external AR app...');
+                                  await _showUnityScreen();
+                                  debugPrint('AR Button: AR app launch completed');
+                                } catch (e, stackTrace) {
+                                  debugPrint('AR Button Error: $e');
+                                  debugPrint('AR Button Stack Trace: $stackTrace');
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Failed to launch AR app: $e'),
+                                      duration: const Duration(seconds: 5),
+                                    ),
+                                  );
+                                }
                               },
                               child: Container(
                                 width: 32,
@@ -1500,3 +1827,4 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
     );
   }
 }
+
