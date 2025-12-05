@@ -89,43 +89,38 @@ class _OverallResultScreenState extends State<OverallResultScreen> {
           return;
         }
 
-        // Save to public Pictures directory (Android) or Photos (iOS)
-        final directory = Platform.isAndroid
-            ? await getExternalStorageDirectory()
-            : await getApplicationDocumentsDirectory();
-        
+        // Save directly to public Pictures directory (Android) or Photos (iOS)
+        Directory? directory;
+        if (Platform.isAndroid) {
+          // Use external storage Pictures directory
+          directory = await getExternalStorageDirectory();
+          if (directory != null) {
+            // Navigate to Pictures folder
+            final picturesDir = Directory('${directory.path.split('/Android')[0]}/Pictures/CyberAR');
+            if (!await picturesDir.exists()) {
+              await picturesDir.create(recursive: true);
+            }
+            directory = picturesDir;
+          }
+        } else if (Platform.isIOS) {
+          directory = await getApplicationDocumentsDirectory();
+        }
+
         if (directory == null) {
           throw Exception('Unable to access storage directory');
         }
-        
-        final filePath = Platform.isAndroid
-            ? '${directory.path}/CyberAR_certificate_$timestamp.png'
-            : '${directory.path}/CyberAR_certificate_$timestamp.png';
-        
+
+        final filePath = '${directory.path}/CyberAR_certificate_$timestamp.png';
         final file = File(filePath);
         await file.writeAsBytes(bytes);
-        
-        // On Android, we need to scan the file to make it visible in gallery
-        if (Platform.isAndroid) {
-          // Use MediaStore to make the file visible in gallery
-          // This is a workaround since gallery plugins are incompatible
-          final saved = await file.exists();
-          if (saved) {
-            // File is saved, user can access it from file manager
-            // For full gallery integration, a compatible plugin would be needed
-          }
-        } else {
-          // iOS automatically shows files in Photos app
-        }
-        
-        final saved = await file.exists();
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(saved
-                ? 'Certificate saved to ${Platform.isAndroid ? "Pictures/CyberAR" : "Photos"} folder.'
-                : 'Failed to save certificate.'),
+            content: Text(Platform.isAndroid
+                ? 'Certificate saved to Pictures/CyberAR folder.'
+                : 'Certificate saved to Photos.'),
+            duration: const Duration(seconds: 3),
           ),
         );
       } else {

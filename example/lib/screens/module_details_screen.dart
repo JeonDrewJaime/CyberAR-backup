@@ -1057,8 +1057,8 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
         } else {
           debugPrint('_launchApp: Launch completed with result: $result');
           return; // Assume success
-        }
-      } catch (e) {
+      }
+    } catch (e) {
         debugPrint('_launchApp: Method 1 error: $e');
         launchFailed = true;
         failureReason = 'Method 1 failed: $e';
@@ -1567,10 +1567,10 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                                   debugPrint('AR Button: arCategory = $arCategory, lessonTitle = ${currentLesson.title}');
                                   
                                   // Record AR interaction
-                                  await _recordArInteraction(
-                                    category: arCategory,
-                                    lessonTitle: currentLesson.title,
-                                  );
+                                await _recordArInteraction(
+                                  category: arCategory,
+                                  lessonTitle: currentLesson.title,
+                                );
                                   debugPrint('AR Button: AR interaction recorded successfully');
                                   
                                   // Launch the external AR app

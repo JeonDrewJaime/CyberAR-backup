@@ -7,10 +7,13 @@ const DashboardLeaderboard = ({ leaderboardData }) => {
   const [loading, setLoading] = useState(false);
   const itemsPerPage = 5;
 
+  // Ensure leaderboardData is an array, default to empty array if undefined
+  const safeLeaderboardData = Array.isArray(leaderboardData) ? leaderboardData : [];
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentData = leaderboardData.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(leaderboardData.length / itemsPerPage);
+  const currentData = safeLeaderboardData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(safeLeaderboardData.length / itemsPerPage);
 
   const handlePageChange = (direction) => {
     if (direction === "next" && currentPage < totalPages) {

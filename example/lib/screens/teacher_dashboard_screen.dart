@@ -3,8 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_unity_widget_example/firebase_service.dart';
 import 'package:flutter_unity_widget_example/model/teacher_dashboard_model.dart';
 import 'package:flutter_unity_widget_example/services/teacher_dashboard_view_model.dart';
+import 'package:flutter_unity_widget_example/services/user_view_model.dart';
 
 class TeacherDashboardScreen extends StatefulWidget {
   const TeacherDashboardScreen({super.key});
@@ -672,6 +674,14 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    //! LISTEN TO USER
+    final userId = FirebaseService.currentUsersId;
+    if (userId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final userViewModel = context.read<UserViewModel>();
+        userViewModel.listenToUser(userId);
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await context.read<TeacherDashboardViewModel>().initialize();
       if (!mounted) return;
@@ -722,12 +732,24 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Welcome back Teacher!',
+                      'Welcome back',
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                         color: royalBlue,
                       ),
+                    ),
+                    Consumer<UserViewModel>(
+                      builder: (context, userViewModel, child) {
+                        return Text(
+                          '${userViewModel.user?.name ?? "Teacher"}!',
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: royalBlue,
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 8),
                     const Text(

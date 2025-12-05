@@ -5,6 +5,7 @@ import 'package:flutter_unity_widget_example/model/module_model.dart';
 import 'package:flutter_unity_widget_example/services/assessment_repository.dart';
 import 'package:flutter_unity_widget_example/services/module_view_model.dart';
 import 'package:flutter_unity_widget_example/services/quiz_attempt_repository.dart';
+import 'package:flutter_unity_widget_example/services/user_view_model.dart';
 import 'package:flutter_unity_widget_example/widgets/student_widget_tree.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -272,6 +273,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    //! LISTEN TO USER
+    final userId = FirebaseService.currentUsersId;
+    if (userId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final userViewModel = context.read<UserViewModel>();
+        userViewModel.listenToUser(userId);
+      });
+    }
     // Show disclaimer dialog after a short delay to ensure the screen is built
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final prefs = await SharedPreferences.getInstance();
@@ -431,13 +440,17 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 color: royalBlue,
               ),
             ),
-            const Text(
-              'Student!',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: royalBlue,
-              ),
+            Consumer<UserViewModel>(
+              builder: (context, userViewModel, child) {
+                return Text(
+                  '${userViewModel.user?.name ?? "Student"}!',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: royalBlue,
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 8),
             const Text(

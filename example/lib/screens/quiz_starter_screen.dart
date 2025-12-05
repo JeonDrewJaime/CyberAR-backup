@@ -180,7 +180,7 @@ class _QuizStarterScreenState extends State<QuizStarterScreen> {
                     SingleChildScrollView(
                       controller: _scrollController,
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           //! ASSESSMENT TIME TITLE
                           const Text(
@@ -190,6 +190,7 @@ class _QuizStarterScreenState extends State<QuizStarterScreen> {
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 16),
 
@@ -213,6 +214,7 @@ class _QuizStarterScreenState extends State<QuizStarterScreen> {
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 12),
 
